@@ -1,0 +1,10 @@
+.crx-root,
+#headlessui-portal-root {
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+}
+.crx-root,
+#headlessui-portal-root {
+  font-family: Inter;
+}
