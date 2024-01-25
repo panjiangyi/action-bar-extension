@@ -1,15 +1,39 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { css } from '@emotion/css';
 import { Dialog, Transition } from '@headlessui/react';
+import { useMemoizedFn } from 'ahooks';
+import classNames from 'classnames';
 import { atom, useAtom } from 'jotai';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { HistoryAction, QueryHistoriesEvent } from '../events/query-histories';
 
+import { Action, useActionSelection } from './action';
+
 const dialogOpenAtom = atom(false);
+
+const useRefs = () => {
+	const refs = useRef<Array<HTMLDivElement | null>>([]);
+
+	return {
+		init(total: number) {
+			refs.current = new Array(total);
+		},
+		get current() {
+			return refs.current;
+		},
+	};
+};
 
 export const App = () => {
 	const [isOpen, setIsOpen] = useAtom(dialogOpenAtom);
 	const [actions, setActions] = useState<HistoryAction[]>([]);
+	const [kw, setKw] = useState('');
+	const refs = useRefs();
+	const { selectedIndex, handleMouseOver } = useActionSelection(
+		actions,
+		refs.current,
+	);
 
 	useEffect(() => {
 		const listener: Parameters<
@@ -23,12 +47,15 @@ export const App = () => {
 		return () => chrome.runtime.onMessage.removeListener(listener);
 	}, [isOpen, setIsOpen]);
 
+	const query = useMemoizedFn(async (kw?: string) => {
+		const d = await QueryHistoriesEvent.triggerInContent(kw);
+		setActions(d);
+		refs.init(d.length);
+	});
+
 	useEffect(() => {
-		(async () => {
-			const d = await QueryHistoriesEvent.triggerInContent();
-			setActions(d);
-		})();
-	}, []);
+		query();
+	}, [query]);
 
 	return (
 		<Transition show={isOpen} as={Fragment}>
@@ -60,31 +87,48 @@ export const App = () => {
 							leaveFrom="jtw-opacity-100 jtw-scale-100"
 							leaveTo="jtw-opacity-0 jtw-scale-95"
 						>
-							<Dialog.Panel className="jtw-w-[700px] jtw-h-[540px] jtw-transform jtw-overflow-hidden jtw-rounded-2xl jtw-bg-white jtw-p-6 jtw-text-left jtw-align-middle jtw-shadow-xl jtw-transition-all">
-								<div className="jtw-h-[40px]">
+							<Dialog.Panel className="jtw-w-[700px] jtw-h-[540px] jtw-transform jtw-overflow-hidden jtw-rounded-xl jtw-bg-[#fafcff]  jtw-text-left jtw-align-middle jtw-shadow-xl jtw-transition-all">
+								<div className="jtw-h-[50px]">
 									<input
+										value={kw}
 										type="text"
 										placeholder="Type a command or search"
-										className="jtw-block jtw-w-full jtw-px-4 jtw-py-3 jtw-text-gray-900 jtw-border jtw-border-gray-300 jtw-rounded-lg jtw-bg-gray-50 sm:text-md focus:jtw-ring-blue-500 focus:jtw-border-blue-500 dark:jtw-bg-gray-700 dark:jtw-border-gray-600 dark:jtw-placeholder-gray-400 dark:jtw-text-white dark:focus:jtw-ring-blue-500 dark:focus:jtw-border-blue-500"
+										className="jtw-block jtw-text-[20px] jtw-h-full jtw-w-full jtw-px-4 jtw-py-[5px] jtw-text-gray-900 jtw-outline-none jtw-rounded-lg jtw-bg-gray-50   dark:jtw-bg-gray-700  dark:jtw-placeholder-gray-400 dark:jtw-text-white "
+										onChange={async (e) => {
+											const value = e.target.value;
+											setKw(value);
+											await query(value);
+										}}
 									/>
 								</div>
-								<div className="jtw-mt-2 jtw-overflow-auto jtw-h-full ">
-									{actions.map((action) => {
+								<div
+									className={classNames(
+										'jtw-overflow-auto',
+										css`
+											height: calc(100% - 50px);
+										`,
+									)}
+								>
+									{actions.map((action, i) => {
 										return (
-											<div
-												key={action.data.id}
-												className="jtw-flex jtw-my-4 jtw-items-center"
+											<Action
+												ref={(current) =>
+													(refs.current[i] = current)
+												}
+												selected={i == selectedIndex}
 												onClick={() => {
 													window.open(
 														action.data.url,
 													);
 												}}
-											>
-												<img
-													src={action.data.favicon}
-												/>
-												<div>{action.data.title}</div>
-											</div>
+												onMouseOver={() => {
+													handleMouseOver(i);
+												}}
+												key={action.data.id}
+												icon={action.data.favicon}
+												title={action.data.title ?? '-'}
+												desc={action.data.url ?? '-'}
+											/>
 										);
 									})}
 								</div>

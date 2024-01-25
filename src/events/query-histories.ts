@@ -30,6 +30,7 @@ export class QueryHistoriesEvent {
 				const favicon = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${item.url}&size=20`;
 				return {
 					type: 'history',
+
 					data: {
 						...item,
 						favicon,
