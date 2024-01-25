@@ -3,11 +3,13 @@ import { Dialog, Transition } from '@headlessui/react';
 import { atom, useAtom } from 'jotai';
 import { Fragment, useEffect, useState } from 'react';
 
+import { HistoryAction, QueryHistoriesEvent } from '../events/query-histories';
+
 const dialogOpenAtom = atom(false);
 
 export const App = () => {
 	const [isOpen, setIsOpen] = useAtom(dialogOpenAtom);
-	const [actions, setActions] = useState<any[]>([]);
+	const [actions, setActions] = useState<HistoryAction[]>([]);
 
 	useEffect(() => {
 		const listener: Parameters<
@@ -23,9 +25,7 @@ export const App = () => {
 
 	useEffect(() => {
 		(async () => {
-			const d = await chrome.runtime.sendMessage({
-				type: 'get-history',
-			});
+			const d = await QueryHistoriesEvent.triggerInContent();
 			setActions(d);
 		})();
 	}, []);
@@ -72,14 +72,18 @@ export const App = () => {
 									{actions.map((action) => {
 										return (
 											<div
-												key={action.id}
+												key={action.data.id}
 												className="jtw-flex jtw-my-4 jtw-items-center"
 												onClick={() => {
-													window.open(action.url);
+													window.open(
+														action.data.url,
+													);
 												}}
 											>
-												<img src={action.favicon} />
-												<div>{action.title}</div>
+												<img
+													src={action.data.favicon}
+												/>
+												<div>{action.data.title}</div>
 											</div>
 										);
 									})}

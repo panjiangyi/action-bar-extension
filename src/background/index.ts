@@ -1,3 +1,5 @@
+import { QueryHistoriesEvent } from '../events/query-histories';
+
 console.log('background is running');
 
 const getCurrentTab = async () => {
@@ -6,25 +8,9 @@ const getCurrentTab = async () => {
 	return tab;
 };
 
-const getAllHistories = async (kw: string = '') => {
-	const historyItems = await chrome.history.search({
-		text: kw,
-		maxResults: 100,
-	});
-	return historyItems.map((item) => {
-		const favicon = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${item.url}&size=16`;
-		return {
-			...item,
-			favicon,
-		};
-	});
-};
-chrome.runtime.onMessage.addListener((request, _, setResponse) => {
-	(async () => {
-		if (request.type === 'get-history') {
-			const dd = await getAllHistories();
-			setResponse(dd);
-		}
+chrome.runtime.onMessage.addListener((...params) => {
+	(async function start() {
+		await Promise.all([QueryHistoriesEvent.inBackground(...params)]);
 	})();
 	return true;
 });
