@@ -6,14 +6,29 @@ const getCurrentTab = async () => {
 	return tab;
 };
 
-chrome.runtime.onMessage.addListener((request) => {
-	if (request.type === 'COUNT') {
-		console.log(
-			'background has received a message from popup, and count is ',
-			request?.count,
-		);
-	}
+const getAllHistories = async (kw: string = '') => {
+	const historyItems = await chrome.history.search({
+		text: kw,
+		maxResults: 100,
+	});
+	return historyItems.map((item) => {
+		const favicon = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${item.url}&size=16`;
+		return {
+			...item,
+			favicon,
+		};
+	});
+};
+chrome.runtime.onMessage.addListener((request, _, setResponse) => {
+	(async () => {
+		if (request.type === 'get-history') {
+			const dd = await getAllHistories();
+			setResponse(dd);
+		}
+	})();
+	return true;
 });
+
 // Listen for the open omni shortcut
 chrome.commands.onCommand.addListener(async (command) => {
 	if (command === 'open-arc') {

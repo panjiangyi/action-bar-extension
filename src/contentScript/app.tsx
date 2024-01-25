@@ -1,11 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Dialog, Transition } from '@headlessui/react';
 import { atom, useAtom } from 'jotai';
-import { Fragment, useEffect } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 const dialogOpenAtom = atom(false);
 
 export const App = () => {
 	const [isOpen, setIsOpen] = useAtom(dialogOpenAtom);
+	const [actions, setActions] = useState<any[]>([]);
 
 	useEffect(() => {
 		const listener: Parameters<
@@ -18,6 +20,15 @@ export const App = () => {
 		chrome.runtime.onMessage.addListener(listener);
 		return () => chrome.runtime.onMessage.removeListener(listener);
 	}, [isOpen, setIsOpen]);
+
+	useEffect(() => {
+		(async () => {
+			const d = await chrome.runtime.sendMessage({
+				type: 'get-history',
+			});
+			setActions(d);
+		})();
+	}, []);
 
 	return (
 		<Transition show={isOpen} as={Fragment}>
@@ -50,28 +61,28 @@ export const App = () => {
 							leaveTo="jtw-opacity-0 jtw-scale-95"
 						>
 							<Dialog.Panel className="jtw-w-[700px] jtw-h-[540px] jtw-transform jtw-overflow-hidden jtw-rounded-2xl jtw-bg-white jtw-p-6 jtw-text-left jtw-align-middle jtw-shadow-xl jtw-transition-all">
-								<div>
+								<div className="jtw-h-[40px]">
 									<input
 										type="text"
 										placeholder="Type a command or search"
 										className="jtw-block jtw-w-full jtw-px-4 jtw-py-3 jtw-text-gray-900 jtw-border jtw-border-gray-300 jtw-rounded-lg jtw-bg-gray-50 sm:text-md focus:jtw-ring-blue-500 focus:jtw-border-blue-500 dark:jtw-bg-gray-700 dark:jtw-border-gray-600 dark:jtw-placeholder-gray-400 dark:jtw-text-white dark:focus:jtw-ring-blue-500 dark:focus:jtw-border-blue-500"
 									/>
 								</div>
-								<div className="jtw-mt-2">
-									<p className="jtw-text-sm jtw-text-gray-500">
-										Your payment has been successfully
-										submitted. We’ve sent you an email with
-										all of the details of your order.
-									</p>
-								</div>
-
-								<div className="jtw-mt-4">
-									<button
-										type="button"
-										className="jtw-inline-flex jtw-justify-center jtw-rounded-md jtw-border jtw-border-transparent jtw-bg-blue-100 jtw-px-4 jtw-py-2 jtw-text-sm jtw-font-medium jtw-text-blue-900 hover:jtw-bg-blue-200 focus:jtw-outline-none focus-visible:jtw-ring-2 focus-visible:jtw-ring-blue-500 focus-visible:jtw-ring-offset-2"
-									>
-										Got it, thanks!
-									</button>
+								<div className="jtw-mt-2 jtw-overflow-auto jtw-h-full ">
+									{actions.map((action) => {
+										return (
+											<div
+												key={action.id}
+												className="jtw-flex jtw-my-4 jtw-items-center"
+												onClick={() => {
+													window.open(action.url);
+												}}
+											>
+												<img src={action.favicon} />
+												<div>{action.title}</div>
+											</div>
+										);
+									})}
 								</div>
 							</Dialog.Panel>
 						</Transition.Child>
