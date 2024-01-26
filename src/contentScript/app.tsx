@@ -6,7 +6,9 @@ import classNames from 'classnames';
 import { atom, useAtom } from 'jotai';
 import { Fragment, useEffect, useRef, useState } from 'react';
 
-import { HistoryAction, QueryHistoriesEvent } from '../events/query-histories';
+import { ExtEvents } from '../events/def';
+import { QueryHistoriesEvent } from '../events/query-histories';
+import { SearchEvent } from '../events/search';
 
 import { Action, useActionSelection } from './action';
 
@@ -27,13 +29,11 @@ const useRefs = () => {
 
 export const App = () => {
 	const [isOpen, setIsOpen] = useAtom(dialogOpenAtom);
-	const [actions, setActions] = useState<HistoryAction[]>([]);
+	const [actions, setActions] = useState<ExtEvents[]>([]);
 	const [kw, setKw] = useState('');
 	const refs = useRefs();
-	const { selectedIndex, handleMouseOver } = useActionSelection(
-		actions,
-		refs.current,
-	);
+	const { selectedIndex, setSelectedIndex, handleMouseOver } =
+		useActionSelection(actions, refs.current);
 
 	useEffect(() => {
 		const listener: Parameters<
@@ -47,15 +47,21 @@ export const App = () => {
 		return () => chrome.runtime.onMessage.removeListener(listener);
 	}, [isOpen, setIsOpen]);
 
-	const query = useMemoizedFn(async () => {
+	const queryHistories = useMemoizedFn(async () => {
 		const d = await QueryHistoriesEvent.triggerInContent();
-		setActions(d);
+		setActions((prev) => {
+			const first = prev[0];
+			if (first?.type === 'search') {
+				return [first, ...d];
+			}
+			return d;
+		});
 		refs.init(d.length);
 	});
 
 	useEffect(() => {
-		query();
-	}, [query]);
+		queryHistories();
+	}, [queryHistories]);
 
 	return (
 		<Transition show={isOpen} as={Fragment}>
@@ -96,8 +102,31 @@ export const App = () => {
 										className="jtw-block jtw-text-[20px] jtw-h-full jtw-w-full jtw-px-4 jtw-py-[5px] jtw-text-gray-900 jtw-outline-none jtw-rounded-lg jtw-bg-gray-50   dark:jtw-bg-gray-700  dark:jtw-placeholder-gray-400 dark:jtw-text-white "
 										onChange={async (e) => {
 											const value = e.target.value;
+
 											setKw(value);
-											await query();
+											setActions(([first, ...rest]) => {
+												if (first?.type === 'search') {
+													if (value === '') {
+														return rest;
+													} else {
+														setSelectedIndex(0);
+														return [
+															SearchEvent.formAction(
+																value,
+															),
+															...rest,
+														];
+													}
+												}
+												setSelectedIndex(0);
+												return [
+													SearchEvent.formAction(
+														value,
+													),
+													first,
+													...rest,
+												];
+											});
 										}}
 									/>
 								</div>
@@ -110,6 +139,29 @@ export const App = () => {
 									)}
 								>
 									{actions.map((action, i) => {
+										let key: unknown;
+										let src: string | undefined;
+										let icon: string | undefined;
+										let title: string;
+										let desc: string;
+										if (action.type === 'history') {
+											key = action.data.id;
+											src = action.data.favicon;
+											title = action.data.title ?? '-';
+											desc = action.data.url ?? '-';
+										} else if (action.type === 'search') {
+											const keyword = action.data.keyword;
+
+											key = keyword;
+											icon = '🔍';
+											title = keyword;
+											desc = 'Search for a query';
+										} else {
+											throw new Error(
+												'unknown action type!',
+											);
+										}
+
 										return (
 											<Action
 												ref={(current) =>
@@ -117,17 +169,19 @@ export const App = () => {
 												}
 												selected={i == selectedIndex}
 												onClick={() => {
-													window.open(
-														action.data.url,
+													QueryHistoriesEvent.handler(
+														action,
 													);
+													SearchEvent.handler(action);
 												}}
 												onMouseOver={() => {
 													handleMouseOver(i);
 												}}
-												key={action.data.id}
-												icon={action.data.favicon}
-												title={action.data.title ?? '-'}
-												desc={action.data.url ?? '-'}
+												key={`${action.type}-${key}`}
+												src={src}
+												icon={icon}
+												title={title}
+												desc={desc}
 											/>
 										);
 									})}

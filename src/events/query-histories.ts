@@ -1,13 +1,7 @@
-import { ActionBase, addListenerFunc, EventBase } from './def';
+import { addListenerFunc, EventBase, ExtEvents, HistoryAction } from './def';
 
 export type QueryHistoriesEventType = EventBase<null>;
 
-export type HistoryAction = ActionBase<
-	'history',
-	chrome.history.HistoryItem & {
-		favicon: string;
-	}
->;
 export type QueryHistoriesEventResponse = HistoryAction[];
 export class QueryHistoriesEvent {
 	static name = 'query histories';
@@ -49,5 +43,10 @@ export class QueryHistoriesEvent {
 			payload: null,
 		});
 		return result;
+	}
+
+	static handler(action: ExtEvents) {
+		if (action.type != 'history') return;
+		window.open(action.data.url);
 	}
 }

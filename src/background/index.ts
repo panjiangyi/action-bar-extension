@@ -1,4 +1,5 @@
 import { QueryHistoriesEvent } from '../events/query-histories';
+import { SearchEvent } from '../events/search';
 
 console.log('background is running');
 
@@ -11,6 +12,7 @@ const getCurrentTab = async () => {
 chrome.runtime.onMessage.addListener((...params) => {
 	(async function start() {
 		await Promise.all([QueryHistoriesEvent.inBackground(...params)]);
+		await Promise.all([SearchEvent.inBackground(...params)]);
 	})();
 	return true;
 });

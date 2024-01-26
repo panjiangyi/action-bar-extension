@@ -49,7 +49,17 @@ export default defineManifest({
 			matches: [],
 		},
 	],
-	permissions: ['history', 'storage', 'favicon'],
+	permissions: [
+		'tabs',
+		'activeTab',
+		'bookmarks',
+		'browsingData',
+		'scripting',
+		'search',
+		'history',
+		'storage',
+		'favicon',
+	],
 	// chrome_url_overrides: {
 	//   newtab: 'newtab.html',
 	// },
