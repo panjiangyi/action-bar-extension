@@ -3,8 +3,9 @@ import { css } from '@emotion/css';
 import { Dialog, Transition } from '@headlessui/react';
 import { useMemoizedFn } from 'ahooks';
 import classNames from 'classnames';
+import Fuse from 'fuse.js';
 import { atom, useAtom } from 'jotai';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ExtEvents } from '../events/def';
 import { QueryHistoriesEvent } from '../events/query-histories';
@@ -29,11 +30,38 @@ const useRefs = () => {
 
 export const App = () => {
 	const [isOpen, setIsOpen] = useAtom(dialogOpenAtom);
-	const [actions, setActions] = useState<ExtEvents[]>([]);
+	const [rawActions, setActions] = useState<ExtEvents[]>([]);
 	const [kw, setKw] = useState('');
 	const refs = useRefs();
+
+	const filterActions = useMemo(() => {
+		if (kw == '') return rawActions;
+		const fuseOptions = {
+			// isCaseSensitive: false,
+			includeScore: true,
+			// shouldSort: true,
+			includeMatches: true,
+			// findAllMatches: false,
+			// minMatchCharLength: 1,
+			// location: 0,
+			// threshold: 0.6,
+			// distance: 100,
+			// useExtendedSearch: false,
+			// ignoreLocation: false,
+			// ignoreFieldNorm: false,
+			// fieldNormWeight: 1,
+			keys: ['data.title', 'data.keyword'],
+		};
+		const fuse = new Fuse(rawActions, fuseOptions);
+
+		// Change the pattern
+		const rawResult = fuse.search(kw);
+
+		return rawResult.map((k) => k.item);
+	}, [rawActions, kw]);
+
 	const { selectedIndex, setSelectedIndex, handleMouseOver } =
-		useActionSelection(actions, refs.current);
+		useActionSelection(filterActions, refs.current);
 
 	useEffect(() => {
 		const listener: Parameters<
@@ -138,7 +166,7 @@ export const App = () => {
 										`,
 									)}
 								>
-									{actions.map((action, i) => {
+									{filterActions.map((action, i) => {
 										let key: unknown;
 										let src: string | undefined;
 										let icon: string | undefined;
