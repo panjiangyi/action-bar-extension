@@ -47,8 +47,8 @@ export const App = () => {
 		return () => chrome.runtime.onMessage.removeListener(listener);
 	}, [isOpen, setIsOpen]);
 
-	const query = useMemoizedFn(async (kw?: string) => {
-		const d = await QueryHistoriesEvent.triggerInContent(kw);
+	const query = useMemoizedFn(async () => {
+		const d = await QueryHistoriesEvent.triggerInContent();
 		setActions(d);
 		refs.init(d.length);
 	});
@@ -97,7 +97,7 @@ export const App = () => {
 										onChange={async (e) => {
 											const value = e.target.value;
 											setKw(value);
-											await query(value);
+											await query();
 										}}
 									/>
 								</div>

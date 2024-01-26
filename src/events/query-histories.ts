@@ -1,8 +1,6 @@
 import { ActionBase, addListenerFunc, EventBase } from './def';
 
-export type QueryHistoriesEventType = EventBase<{
-	kw?: string;
-}>;
+export type QueryHistoriesEventType = EventBase<null>;
 
 export type HistoryAction = ActionBase<
 	'history',
@@ -19,39 +17,36 @@ export class QueryHistoriesEvent {
 		sender,
 		setResponse: (response: QueryHistoriesEventResponse) => void,
 	) => {
-		const getAllHistories = async (
-			kw: string = '',
-		): Promise<QueryHistoriesEventResponse> => {
-			const historyItems = await chrome.history.search({
-				text: kw,
-				maxResults: 100,
-			});
-			return historyItems.map((item) => {
-				const favicon = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${item.url}&size=20`;
-				return {
-					type: 'history',
+		const getAllHistories =
+			async (): Promise<QueryHistoriesEventResponse> => {
+				const historyItems = await chrome.history.search({
+					text: '',
+					maxResults: 100,
+				});
+				return historyItems.map((item) => {
+					const favicon = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${item.url}&size=20`;
+					return {
+						type: 'history',
 
-					data: {
-						...item,
-						favicon,
-					},
-				};
-			});
-		};
+						data: {
+							...item,
+							favicon,
+						},
+					};
+				});
+			};
 		if (event.type !== this.name) return;
-		const histories = await getAllHistories(event.payload.kw);
+		const histories = await getAllHistories();
 		setResponse(histories);
 	};
 
-	static async triggerInContent(kw?: string) {
+	static async triggerInContent() {
 		const result = await chrome.runtime.sendMessage<
 			QueryHistoriesEventType,
 			QueryHistoriesEventResponse
 		>({
 			type: this.name,
-			payload: {
-				kw,
-			},
+			payload: null,
 		});
 		return result;
 	}
