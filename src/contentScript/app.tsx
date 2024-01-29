@@ -42,7 +42,7 @@ export const App = () => {
 			// shouldSort: true,
 			includeMatches: true,
 			// findAllMatches: false,
-			// minMatchCharLength: 1,
+			minMatchCharLength: 4,
 			// location: 0,
 			// threshold: 0.6,
 			// distance: 100,
