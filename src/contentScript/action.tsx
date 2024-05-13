@@ -3,13 +3,13 @@ import { useMemoizedFn } from 'ahooks';
 import classNames from 'classnames';
 import { forwardRef, useEffect, useRef, useState } from 'react';
 
+import { callActions } from '../events';
 import { ExtEvents } from '../events/def';
-import { QueryHistoriesEvent } from '../events/query-histories';
-import { SearchEvent } from '../events/search';
 
 export const useActionSelection = (
 	actions: ExtEvents[],
 	doms: (HTMLElement | null)[],
+	onEnter: () => void,
 ) => {
 	const isSelecting = useRef(false);
 	const timeoutIds = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -17,7 +17,7 @@ export const useActionSelection = (
 	const total = actions.length;
 	const [selectedIndex, setSelectedIndex] = useState(0);
 
-	const handleKeyDown = useMemoizedFn((e: KeyboardEvent) => {
+	const handleKeyDown = useMemoizedFn(async (e: KeyboardEvent) => {
 		isSelecting.current = true;
 		timeoutIds.current.forEach(clearTimeout);
 		timeoutIds.current = [];
@@ -49,8 +49,8 @@ export const useActionSelection = (
 			// 处理 Enter 键事件
 			// actions[selectedIndex].onAction();
 			const action = actions[selectedIndex];
-			QueryHistoriesEvent.handler(action);
-			SearchEvent.handler(action);
+			await callActions(action);
+			onEnter();
 		}
 	});
 
@@ -85,7 +85,7 @@ export const Action = forwardRef<
 	{
 		className?: string;
 		src?: string;
-		icon?: string;
+		icon?: React.ReactNode;
 		title: string;
 		desc: string;
 		selected: boolean;

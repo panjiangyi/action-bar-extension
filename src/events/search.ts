@@ -1,10 +1,16 @@
-import { addListenerFunc, EventBase, ExtEvents, SearchAction } from './def';
+import {
+	ActionType,
+	addListenerFunc,
+	EventBase,
+	ExtEvents,
+	SpecialAction,
+} from './def';
 type SearchEventType = EventBase<{
 	keyword: string;
 }>;
 
 export class SearchEvent {
-	static name = 'search';
+	static name = ActionType.search;
 
 	static inBackground: addListenerFunc = async (event: SearchEventType) => {
 		if (event.type !== this.name) return;
@@ -15,7 +21,7 @@ export class SearchEvent {
 	};
 
 	static async triggerInContent(keyword: string) {
-		await chrome.runtime.sendMessage<SearchEvent, null>({
+		await chrome.runtime.sendMessage<SearchEventType, null>({
 			type: this.name,
 			payload: {
 				keyword,
@@ -23,17 +29,26 @@ export class SearchEvent {
 		});
 	}
 
-	static formAction(keyword: string): SearchAction {
+	/**
+	 * create special action
+	 * @param keyword
+	 * @returns
+	 */
+	static formAction(keyword: string): SpecialAction | null {
+		if (keyword == '') return null;
+		if (keyword.startsWith('/')) return null;
 		return {
-			type: 'search',
+			type: ActionType.search,
+			icon: '🔍',
+			desc: 'Search for a query',
 			data: {
 				keyword,
 			},
 		};
 	}
 
-	static handler(action: ExtEvents) {
-		if (action.type != 'search') return;
-		this.triggerInContent(action.data.keyword);
+	static async handler(action: ExtEvents) {
+		if (action.type !== ActionType.search) return;
+		await this.triggerInContent(action.data.keyword);
 	}
 }

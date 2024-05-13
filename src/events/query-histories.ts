@@ -1,52 +1,64 @@
-import { addListenerFunc, EventBase, ExtEvents, HistoryAction } from './def';
+import {
+	ActionType,
+	addListenerFunc,
+	EventBase,
+	ExtEvents,
+	HistoryAction,
+} from './def';
 
-export type QueryHistoriesEventType = EventBase<null>;
+export type QueryHistoriesEventType = EventBase<{
+	kw: string;
+}>;
 
 export type QueryHistoriesEventResponse = HistoryAction[];
+
+export const getAllHistories = async (
+	kw: string,
+): Promise<QueryHistoriesEventResponse> => {
+	const historyItems = await chrome.history.search({
+		text: kw,
+		maxResults: 9999999,
+	});
+	return historyItems.map((item) => {
+		const favicon = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${item.url}&size=20`;
+		return {
+			type: ActionType.history,
+			desc: item.url ?? '',
+			data: {
+				...item,
+				favicon,
+			},
+		};
+	});
+};
 export class QueryHistoriesEvent {
-	static name = 'query histories';
+	static name = ActionType.history;
 
 	static inBackground: addListenerFunc = async (
 		event: QueryHistoriesEventType,
 		sender,
 		setResponse: (response: QueryHistoriesEventResponse) => void,
 	) => {
-		const getAllHistories =
-			async (): Promise<QueryHistoriesEventResponse> => {
-				const historyItems = await chrome.history.search({
-					text: '',
-					maxResults: 100,
-				});
-				return historyItems.map((item) => {
-					const favicon = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${item.url}&size=20`;
-					return {
-						type: 'history',
-
-						data: {
-							...item,
-							favicon,
-						},
-					};
-				});
-			};
 		if (event.type !== this.name) return;
-		const histories = await getAllHistories();
+		const histories = await getAllHistories(event.payload.kw);
 		setResponse(histories);
 	};
 
-	static async triggerInContent() {
+	static async triggerInContent(kw: string) {
 		const result = await chrome.runtime.sendMessage<
 			QueryHistoriesEventType,
 			QueryHistoriesEventResponse
 		>({
 			type: this.name,
-			payload: null,
+			payload: {
+				kw,
+			},
 		});
 		return result;
 	}
 
 	static handler(action: ExtEvents) {
-		if (action.type != 'history') return;
+		if (action.type != ActionType.history) return;
 		window.open(action.data.url);
 	}
 }

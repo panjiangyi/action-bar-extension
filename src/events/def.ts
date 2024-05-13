@@ -3,27 +3,43 @@ export type addListenerFunc = Parameters<
 >[0];
 
 export type EventBase<D> = {
-	type: string;
+	type: ActionType;
 	payload: D;
 };
 
-export type ActionBase<T extends string, D> = {
+export type ActionBase<T extends ActionType, D> = {
 	type: T;
 	data: D;
+	icon?: React.ReactNode;
+	desc: string;
 };
 
+export enum ActionType {
+	history,
+	search,
+	clearHistory,
+}
+
 export type HistoryAction = ActionBase<
-	'history',
+	ActionType.history,
 	chrome.history.HistoryItem & {
 		favicon: string;
 	}
 >;
 
 export type SearchAction = ActionBase<
-	'search',
+	ActionType.search,
+	{
+		keyword: string;
+	}
+>;
+export type ClearHistory = ActionBase<
+	ActionType.clearHistory,
 	{
 		keyword: string;
 	}
 >;
 
-export type ExtEvents = HistoryAction | SearchAction;
+export type SpecialAction = SearchAction | ClearHistory;
+
+export type ExtEvents = HistoryAction | SpecialAction;

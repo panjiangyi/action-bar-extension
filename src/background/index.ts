@@ -1,3 +1,4 @@
+import { ClearHistory } from '../events/clear-history';
 import { QueryHistoriesEvent } from '../events/query-histories';
 import { SearchEvent } from '../events/search';
 
@@ -13,6 +14,7 @@ chrome.runtime.onMessage.addListener((...params) => {
 	(async function start() {
 		await Promise.all([QueryHistoriesEvent.inBackground(...params)]);
 		await Promise.all([SearchEvent.inBackground(...params)]);
+		await Promise.all([ClearHistory.inBackground(...params)]);
 	})();
 	return true;
 });

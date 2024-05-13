@@ -7,9 +7,9 @@ import Fuse from 'fuse.js';
 import { atom, useAtom } from 'jotai';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ExtEvents } from '../events/def';
+import { callActions, formActions } from '../events';
+import { ActionType, ExtEvents } from '../events/def';
 import { QueryHistoriesEvent } from '../events/query-histories';
-import { SearchEvent } from '../events/search';
 
 import { Action, useActionSelection } from './action';
 
@@ -33,35 +33,41 @@ export const App = () => {
 	const [rawActions, setActions] = useState<ExtEvents[]>([]);
 	const [kw, setKw] = useState('');
 	const refs = useRefs();
+	const pruneKw = kw.replace(/^\/\w+\s/, '');
 
 	const filterActions = useMemo(() => {
-		if (kw == '') return rawActions;
+		if (pruneKw == '') return rawActions;
+		const [first, ...rest] = rawActions;
+		const inCmdMode = kw.startsWith('/');
 		const fuseOptions = {
-			// isCaseSensitive: false,
 			includeScore: true,
-			// shouldSort: true,
 			includeMatches: true,
-			// findAllMatches: false,
-			minMatchCharLength: 4,
-			// location: 0,
-			// threshold: 0.6,
-			// distance: 100,
-			// useExtendedSearch: false,
-			// ignoreLocation: false,
-			// ignoreFieldNorm: false,
-			// fieldNormWeight: 1,
+
 			keys: ['data.title', 'data.keyword'],
 		};
-		const fuse = new Fuse(rawActions, fuseOptions);
+		const fuse = new Fuse(inCmdMode ? rest : rawActions, fuseOptions);
 
 		// Change the pattern
-		const rawResult = fuse.search(kw);
+		const rawResult = fuse.search(pruneKw);
 
-		return rawResult.map((k) => k.item);
-	}, [rawActions, kw]);
+		const result = rawResult.map((k) => k.item);
+		return inCmdMode ? [first, ...result] : result;
+	}, [kw, rawActions, pruneKw]);
+
+	const queryHistories = useMemoizedFn(async () => {
+		const d = await QueryHistoriesEvent.triggerInContent(pruneKw);
+		setActions((prev) => {
+			const first = prev[0];
+			if (first && first.type !== ActionType.history) {
+				return [first, ...d];
+			}
+			return d;
+		});
+		refs.init(d.length);
+	});
 
 	const { selectedIndex, setSelectedIndex, handleMouseOver } =
-		useActionSelection(filterActions, refs.current);
+		useActionSelection(filterActions, refs.current, queryHistories);
 
 	useEffect(() => {
 		const listener: Parameters<
@@ -74,18 +80,6 @@ export const App = () => {
 		chrome.runtime.onMessage.addListener(listener);
 		return () => chrome.runtime.onMessage.removeListener(listener);
 	}, [isOpen, setIsOpen]);
-
-	const queryHistories = useMemoizedFn(async () => {
-		const d = await QueryHistoriesEvent.triggerInContent();
-		setActions((prev) => {
-			const first = prev[0];
-			if (first?.type === 'search') {
-				return [first, ...d];
-			}
-			return d;
-		});
-		refs.init(d.length);
-	});
 
 	useEffect(() => {
 		queryHistories();
@@ -133,27 +127,12 @@ export const App = () => {
 
 											setKw(value);
 											setActions(([first, ...rest]) => {
-												if (first?.type === 'search') {
-													if (value === '') {
-														return rest;
-													} else {
-														setSelectedIndex(0);
-														return [
-															SearchEvent.formAction(
-																value,
-															),
-															...rest,
-														];
-													}
-												}
 												setSelectedIndex(0);
-												return [
-													SearchEvent.formAction(
-														value,
-													),
-													first,
-													...rest,
-												];
+												const newFirst =
+													formActions(value);
+												return newFirst == null
+													? [first, ...rest]
+													: [...newFirst, ...rest];
 											});
 										}}
 									/>
@@ -169,21 +148,29 @@ export const App = () => {
 									{filterActions.map((action, i) => {
 										let key: unknown;
 										let src: string | undefined;
-										let icon: string | undefined;
 										let title: string;
-										let desc: string;
-										if (action.type === 'history') {
+										// eslint-disable-next-line prefer-const
+										let { desc, icon } = action ?? {};
+										if (
+											action.type === ActionType.history
+										) {
 											key = action.data.id;
 											src = action.data.favicon;
 											title = action.data.title ?? '-';
 											desc = action.data.url ?? '-';
-										} else if (action.type === 'search') {
+										} else if (
+											action.type === ActionType.search
+										) {
 											const keyword = action.data.keyword;
-
 											key = keyword;
-											icon = '🔍';
 											title = keyword;
-											desc = 'Search for a query';
+										} else if (
+											action.type ===
+											ActionType.clearHistory
+										) {
+											const keyword = action.data.keyword;
+											key = keyword;
+											title = keyword;
 										} else {
 											throw new Error(
 												'unknown action type!',
@@ -196,11 +183,9 @@ export const App = () => {
 													(refs.current[i] = current)
 												}
 												selected={i == selectedIndex}
-												onClick={() => {
-													QueryHistoriesEvent.handler(
-														action,
-													);
-													SearchEvent.handler(action);
+												onClick={async () => {
+													await callActions(action);
+													queryHistories();
 												}}
 												onMouseOver={() => {
 													handleMouseOver(i);
